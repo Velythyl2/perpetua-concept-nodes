@@ -1,6 +1,7 @@
 defaults:
   # - server: ObjectMapServer
-  - server: PerpetuaMapServer
+  # - server: PerpetuaMapServer
+  - server: AgentServer
   - paths: paths
   - _self_
 

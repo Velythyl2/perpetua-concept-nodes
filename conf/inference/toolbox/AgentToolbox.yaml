@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - /ft_extraction@ft_extractor: CLIP_H14
+
+_target_: concept_graphs.inference.toolbox.AgentToolbox.AgentToolbox
+map_path: ${map_path}
+data_path: ${data_dir}
+p_m: ${p_m}
+p_f: ${p_f}
+load_week: false
+seed: ${seed}
+sim: null        # Set in runtime
