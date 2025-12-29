@@ -101,7 +101,7 @@ Do not go to an object unless explicitly necessary to fulfill the query.
 
         """
         pickupable_name = self.resolve_query_into_pickupable(pickupable_id)
-        prediction = self.toolbox.temporal_object_query(pickupable_name, current_time)
+        prediction, _ = self.toolbox.temporal_object_query(pickupable_name, current_time)
         sorted_keys = sorted(prediction, key=prediction.get, reverse=True)
         return sorted_keys[0], prediction
 
