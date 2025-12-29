@@ -53,6 +53,7 @@ def main(cfg: DictConfig):
     server: Union[ObjectMapServer | PerpetuaMapServer] = instantiate(cfg.server, toolbox=toolbox)
     log.info(f"Loading map with a total of {len(server.object_map)} objects")
     # Start and spin the server
+    # server.toolbox.agent.go_to_receptacle('Dresser|4|1', 'AlarmClock|surface|4|12')
     server.spin()
 
     """

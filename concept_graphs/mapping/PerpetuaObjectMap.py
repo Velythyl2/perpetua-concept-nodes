@@ -181,7 +181,9 @@ class PerpetuaObjectMap:
         self.set_edges(inferred_edges)
         self.time = timestep.item()
 
-    def object_predict(self, object_id: str, timestep: float, threshold: float = 0.5) -> Dict[str, float]:
+    def object_predict(
+        self, object_id: str, timestep: float, threshold: float = 0.5
+    ) -> Dict[str, float]:
         """Method to predict a single pickupable location at a given timestep."""
         if isinstance(timestep, float) or isinstance(timestep, int):
             timestep = jnp.array([timestep], dtype=jnp.float32)
@@ -217,7 +219,7 @@ class PerpetuaObjectMap:
         self.time = timestep.item()
         self._refresh_geometry_cache()
 
-        return {s:b.item() for b,s in zip(belief, pickupable.receptacles)}
+        return {s: b.item() for b, s in zip(belief, pickupable.receptacles)}
 
     def update_canonical_vectors(self, canonical_vectors: Dict[str, List[np.ndarray]]):
         for receptacle_name, vectors in canonical_vectors.items():
@@ -247,6 +249,28 @@ class PerpetuaObjectMap:
 
         for obj in self.objects.values():
             obj.pcd_to_o3d()
+
+    def update(
+        self,
+        object_containment_obs: Dict[str, Dict[str, jnp.ndarray]],
+        observation_time: float,
+        p_m: float,
+        p_f: float,
+    ):
+        for object_id, obs in object_containment_obs.items():
+            if object_id not in self._pickupables:
+                continue
+            pickupable = self._pickupables[object_id]
+            receptacle_names = list(obs.keys())
+            observations = jnp.array(list(obs.values())).flatten()
+            timestamps = jnp.full_like(observations, observation_time)
+            pickupable.update(
+                observations,
+                timestamps,
+                p_m,
+                p_f,
+                receptacle_names,
+            )
 
     def update_estimators(
         self,

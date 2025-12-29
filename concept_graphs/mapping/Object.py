@@ -110,7 +110,8 @@ class Object:
         p_f: float,
         receptacle_names: Optional[List[str]] = None,
     ):
-        # If obs or t is not jnp.ndarray, convert to jnp.array
+        # NOTE: If the obs_times are smaller than the last time the estimator was updated,
+        # No update will be performed.
         if not isinstance(obs, jnp.ndarray):
             obs = jnp.array(obs)
         if not isinstance(t, jnp.ndarray):
@@ -127,14 +128,12 @@ class Object:
     def predict(
         self, t: Union[float, jnp.array], receptacle_names: Optional[List[str]] = None
     ) -> jnp.ndarray:
+        # NOTE: As the filter cannot predict the past, if t < last observation time,
+        # it will just return the prediction at the last observation time.
         if isinstance(t, float):
             t = jnp.array([t])
         out = object_predict(self.estimator, t, receptacle_names=receptacle_names)
         return out
-
-    def predict_at_last_observation(self) -> jnp.ndarray:
-        last_obs_times = jnp.array(self.estimator.last_observation_times)
-        return self.predict(last_obs_times)
 
     def update_geometry(self):
         """Pull segment point clouds into one object-level point cloud"""

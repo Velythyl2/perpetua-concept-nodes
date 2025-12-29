@@ -42,5 +42,17 @@ class AgentServer(PerpetuaMapServer):
         if self.open_vocab_query is not None:
             msg = self.toolbox.open_vocab_query(self.open_vocab_query)
             self.open_vocab_query = None
+            self.display_llm_response(msg)
+
+    def display_llm_response(
+        self,
+        msg: str
+    ):
+        client = self.server.get_clients()[0]
+        client.add_notification(
+            title="LLM Response",
+            body=msg['messages'][-1].content,
+            auto_close_seconds=10.0,
+        )
             
    

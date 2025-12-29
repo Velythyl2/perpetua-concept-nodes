@@ -1,5 +1,7 @@
 from typing import Dict, Any, Tuple, Union
 
+import jax.numpy as jnp
+
 from langchain.agents import create_agent
 from langchain.tools import tool
 
@@ -14,7 +16,9 @@ class PerpetuaAgent(Agent):
         super().__init__(sim)
         self.toolbox = toolbox
         self.llm_model = "openai:gpt-5"
+        # self.llm_model = "gpt-4.1"
         self.llm_agent = create_agent(model=self.llm_model, tools=self.tools())
+
 
     @property
     def object_map(self) -> PerpetuaObjectMap:
@@ -86,7 +90,7 @@ Do not go to an object unless explicitly necessary to fulfill the query.
         return float(self.sim.sss_data.self_at_current_time._timestamp)
 
     def _predict_object_receptacle(
-        self, pickupable: str, current_time: float = None
+        self, pickupable_id: str, current_time: float = None
     ) -> Dict[str, float]:
         """
 
@@ -96,16 +100,45 @@ Do not go to an object unless explicitly necessary to fulfill the query.
         Returns: Tuple[Most likely receptacle, Dict of probability weights for each receptacle]
 
         """
-        pickupable_id = self.resolve_query_into_pickupable(pickupable)
-        prediction = self.object_map.object_predict(pickupable_id, current_time)
+        pickupable_name = self.resolve_query_into_pickupable(pickupable_id)
+        prediction = self.toolbox.temporal_object_query(pickupable_name, current_time)
         sorted_keys = sorted(prediction, key=prediction.get, reverse=True)
         return sorted_keys[0], prediction
 
     def update(self, observation: Dict[str, Any]):
-        return None  # todo self.object_map.object_update(current_time, pickupable)
+        apn = observation["point_apn"]
+        assignments = apn._assignment
+        object_containment_obs = {}
+        for pickupable_idx, pickupable_id in enumerate(apn.pickupable_names):
+            pickupable_vector = assignments[pickupable_idx]
+            # Check if there is a positive observation
+            found_positive = (pickupable_vector == 1.0).any()
+            if found_positive:
+                obs_receptacle = {}
+                # If a pickupable is seen in a receptacle, we can assume then it is not in other receptacles
+                for idx, val in enumerate(pickupable_vector):
+                    name = apn.receptacle_names[idx]
+                    if name == 'OOB_FAKE_RECEPTACLE':
+                        continue
+                    if val == 1.0:
+                        obs_receptacle[name] = jnp.array([1.0])
+                    elif val >= -1.0:
+                        obs_receptacle[name] = jnp.array([0.0])
+            else:
+                # If not found, just return the places where it was not seen (if they exist)
+                obs_receptacle = {
+                    apn.receptacle_names[idx]: val
+                    for idx, val in enumerate(pickupable_vector)
+                    if val >= 0 and apn.receptacle_names[idx] != 'OOB_FAKE_RECEPTACLE'
+                }
+            # Only populate if we have some observation
+            if len(obs_receptacle) > 0:
+                object_containment_obs[pickupable_id] = obs_receptacle
+        self.toolbox.temporal_map_update(object_containment_obs, self.current_time)
+
 
     def found_pickupable(
-        self, receptacle_name: str, pickupable_name: str, observation: Dict[str, Any]
+        self, receptacle_id: str, pickupable_id: str, observation: Dict[str, Any]
     ) -> Union[bool, None]:
         """
 
@@ -120,13 +153,13 @@ Do not go to an object unless explicitly necessary to fulfill the query.
         apn: GeneratedSemiStaticData = observation["point_apn"]
 
         vector_for_pickupable = apn._assignment[
-            apn.pickupable_names.index(pickupable_name)
+            apn.pickupable_names.index(pickupable_id)
         ]
         if (vector_for_pickupable == 1).any():
             return True
 
         try:
-            if vector_for_pickupable[apn.receptacle_names.index(receptacle_name)] >= 0:
+            if vector_for_pickupable[apn.receptacle_names.index(receptacle_id)] >= 0:
                 return False
         except:
             pass
