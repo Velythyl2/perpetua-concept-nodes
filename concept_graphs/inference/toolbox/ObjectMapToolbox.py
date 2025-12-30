@@ -13,7 +13,6 @@ class ObjectMapToolbox:
         self,
         map_path: str,
         ft_extractor: CLIP,
-        **kwargs
     ):
 
         self.ft_extractor = ft_extractor

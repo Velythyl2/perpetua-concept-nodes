@@ -9,20 +9,20 @@ from semistaticsim.groundtruth.simulator import Simulator
 
 from concept_graphs.inference.agent.BaseAgent import Agent, AgentPrinterCallback
 from concept_graphs.inference.toolbox.PerpetuaMapToolbox import PerpetuaMapToolbox
+from concept_graphs.viz.server.AgentServer import AgentServer
 from concept_graphs.mapping.PerpetuaObjectMap import PerpetuaObjectMap
 
+
 class PerpetuaAgent(Agent):
-    def __init__(self, sim: Simulator, toolbox: PerpetuaMapToolbox):
-        super().__init__(sim)
-        self.toolbox = toolbox
+    def __init__(self, sim: Simulator, server: AgentServer):
+        super().__init__(sim, server)
         self.llm_model = "openai:gpt-5"
         # self.llm_model = "gpt-4.1"
         self.llm_agent = create_agent(model=self.llm_model, tools=self.tools())
 
-
     @property
-    def object_map(self) -> PerpetuaObjectMap:
-        return self.toolbox.object_map
+    def toolbox(self) -> PerpetuaMapToolbox:
+        return self.server.toolbox
 
     def tools(self):
         @tool
@@ -37,8 +37,8 @@ class PerpetuaAgent(Agent):
                 pickupable_id: A pickupable object's id. Must match exactly.
 
             Returns:
-                argmax_receptacle (str): Most likely receptacle
-                recptacle_weights (Dict[str, float]) Dict of probability weights for each receptacle]
+                argmax_receptacle (str): The name of the most likely receptacle (or "NOT_PRESENT" if the object is not present).
+                receptacle_weights (Dict[str, float]) Dict of probability weights for each receptacle (or an empty dictionary if the object is not present).
 
             """
             return self.predict_object_receptacle(pickupable_id)
@@ -87,23 +87,48 @@ Do not go to an object unless explicitly necessary to fulfill the query.
 
     @property
     def current_time(self):
-        return float(self.sim.sss_data.self_at_current_time._timestamp)
+        return (
+            float(self.sim.sss_data.self_at_current_time._timestamp)
+            + self.dt * self.iterations
+        )
 
     def _predict_object_receptacle(
         self, pickupable_id: str, current_time: float = None
-    ) -> Dict[str, float]:
+    ) -> Tuple[str, Dict[str, float]]:
         """
 
         Args:
             pickupable_id: A pickupable object's id. Must match exactly.
-
-        Returns: Tuple[Most likely receptacle, Dict of probability weights for each receptacle]
+            current_time: The simulation time to query for.
+        Returns:
+            Tuple[str, Dict[str, float]]: A tuple containing:
+                - The name of the most likely receptacle (or "NOT_PRESENT" if the object is not present).
+                - A dictionary of probability weights for the filtered receptacles (or an empty dictionary if the object is not present).
 
         """
+        # TODO: Make this configurable
+        threshold = 0.5
         pickupable_name = self.resolve_query_into_pickupable(pickupable_id)
-        prediction, _ = self.toolbox.temporal_object_query(pickupable_name, current_time)
-        sorted_keys = sorted(prediction, key=prediction.get, reverse=True)
-        return sorted_keys[0], prediction
+        prediction, _ = self.toolbox.temporal_object_query(
+            pickupable_name, current_time
+        )
+        filtered_prediction = {k: v for k, v in prediction.items() if v >= threshold}
+
+        if not filtered_prediction:
+            # Report not present
+            self.server.display_query_object(
+                pickupable_name, "NOT_PRESENT", jnp.array([255, 0, 255])
+            )
+            return "NOT_PRESENT", {}
+
+        sorted_keys = sorted(
+            filtered_prediction, key=filtered_prediction.get, reverse=True
+        )
+
+        self.server.display_query_object(
+            pickupable_name, sorted_keys[0], jnp.array([255, 0, 255])
+        )
+        return sorted_keys[0], filtered_prediction
 
     def update(self, observation: Dict[str, Any]):
         apn = observation["point_apn"]
@@ -118,7 +143,7 @@ Do not go to an object unless explicitly necessary to fulfill the query.
                 # If a pickupable is seen in a receptacle, we can assume then it is not in other receptacles
                 for idx, val in enumerate(pickupable_vector):
                     name = apn.receptacle_names[idx]
-                    if name == 'OOB_FAKE_RECEPTACLE':
+                    if name == "OOB_FAKE_RECEPTACLE":
                         continue
                     if val == 1.0:
                         obs_receptacle[name] = jnp.array([1.0])
@@ -129,13 +154,12 @@ Do not go to an object unless explicitly necessary to fulfill the query.
                 obs_receptacle = {
                     apn.receptacle_names[idx]: val
                     for idx, val in enumerate(pickupable_vector)
-                    if val >= 0 and apn.receptacle_names[idx] != 'OOB_FAKE_RECEPTACLE'
+                    if val >= 0 and apn.receptacle_names[idx] != "OOB_FAKE_RECEPTACLE"
                 }
             # Only populate if we have some observation
             if len(obs_receptacle) > 0:
                 object_containment_obs[pickupable_id] = obs_receptacle
         self.toolbox.temporal_map_update(object_containment_obs, self.current_time)
-
 
     def found_pickupable(
         self, receptacle_id: str, pickupable_id: str, observation: Dict[str, Any]
@@ -165,3 +189,35 @@ Do not go to an object unless explicitly necessary to fulfill the query.
             pass
 
         return None
+
+    def spin(self):
+        while True:
+            self._callbacks()
+
+    def _callbacks(self):
+        # LLM
+        if self.server.open_vocab_query is not None:
+                response = self.query(self.server.open_vocab_query)
+                self.server.open_vocab_query = None
+                self.display_llm_response(response)
+        # Predict
+        if (
+            self.server.object_query_time is not None
+            and self.server.selected_object_id is not None
+        ):
+            self.predict_object_receptacle(
+                self.server.selected_object_id, self.server.object_query_time
+            )
+            self.server.object_query_time = None
+            self.server.selected_object_id = None
+            self.server.receptacle_id = None
+        # Go to receptacle
+        if (
+            self.server.selected_object_id is not None
+            and self.server.receptacle_id is not None
+        ):
+            self.go_to_receptacle(
+                self.server.receptacle_id, self.server.selected_object_id
+            )
+            self.server.selected_object_id = None
+            self.server.receptacle_id = None

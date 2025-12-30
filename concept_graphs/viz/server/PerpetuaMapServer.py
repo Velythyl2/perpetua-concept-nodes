@@ -93,6 +93,7 @@ class PerpetuaMapServer(ObjectMapServer):
             self.display_query_object(
                 self.selected_object_id, np.array([255, 0, 255]), prediction, gt_state
             )
+            self.map_time_tracker_gui_number.value = self.object_map.time
             self.object_query_time = None
             self.selected_object_id = None
         # Reset edges

@@ -1,5 +1,5 @@
 defaults:
-  - /inference/toolbox@toolbox: AgentToolbox
+  - /inference/toolbox@toolbox: PerpetuaMapToolbox
 
 _target_: concept_graphs.viz.server.AgentServer.AgentServer
 point_shape: circle

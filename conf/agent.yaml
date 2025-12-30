@@ -1,6 +1,5 @@
 defaults:
-  # - server: ObjectMapServer
-  - server: PerpetuaMapServer
+  - inference/agent@agent: PerpetuaAgent
   - paths: paths
   - _self_
 

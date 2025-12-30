@@ -8,6 +8,7 @@ import re
 import open3d as o3d
 from pathlib import Path
 from omegaconf import OmegaConf
+from scipy.spatial.transform import Rotation as R
 
 # A logger for this file
 log = logging.getLogger(__name__)
@@ -80,3 +81,28 @@ def aabb_iou(c1: np.ndarray, c2: np.ndarray) -> float:
         return 0.0
 
     return inter_vol / (vol1 + vol2 - inter_vol)
+
+
+def procthor_to_ros(pose: dict) -> np.ndarray:
+    """Convert Procthor pose (x, y, z, qw, qx, qy, qz) to ROS pose (x, y, z, qx, qy, qz, qw)."""
+    LHS_TO_RHS = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    RHS_TO_ROS = np.array([[0, 0, 1, 0], [-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
+    CAM_OFFSET = 0.675
+    position = pose['position']
+    rotation = pose['rotation']
+
+    r_yaw = R.from_euler("y", rotation["y"], degrees=True).as_matrix()
+    r_pitch = R.from_euler("x", rotation["x"], degrees=True).as_matrix()
+
+    # Combined rotation in Unity Frame
+    rot_unity = r_yaw @ r_pitch
+    pose_unity = np.eye(4)
+    pose_unity[0:3, 0:3] = rot_unity
+    pose_unity[0:3, 3] = [
+        position["x"],
+        position["y"] + CAM_OFFSET,
+        position["z"],
+    ]
+
+    pose_rhs = RHS_TO_ROS @ (LHS_TO_RHS @ pose_unity @ LHS_TO_RHS.T)
+    return pose_rhs

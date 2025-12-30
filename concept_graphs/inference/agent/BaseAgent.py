@@ -7,16 +7,21 @@ EVENTUALLY, THIS FILE WILL GO INTO SSS REPO
 from abc import ABC
 from typing import Dict, Any, Tuple, Optional
 
+import numpy as np
+
 from semistaticsim.keyboardcontrol.main_skillsim import ROBOTS
 from semistaticsim.rendering.simulation.skill_simulator import Simulator
+
+from concept_graphs.viz.server.AgentServer import AgentServer
 
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
 
 
 class Agent(ABC):
-    def __init__(self, sim: Simulator):
+    def __init__(self, sim: Simulator, server: AgentServer):
         self.sim = sim
+        self.server = server
         # TODO: make these parameters configurable
         self.dt = 1 / 1000    # Assume a full loop takes less than 1000 steps
         self.iterations = 0   # To track the number of updates
@@ -106,7 +111,11 @@ class Agent(ABC):
             obs = self.sim.render()
             self.sim.privileged_apn = None
 
+            # TODO: When consuming observations, the target receptacle may have changed
+            # We may need to predict every certain # of observations in case the receptacle_id changes
             self.update(obs)
+            self.server.display_agent(obs["agent_pose"])
+            self.server.display_query_object(looking_for_pickupable, receptacle_id, np.array([255, 0, 255]))
             self.iterations += 1
 
             found_it = self.found_pickupable(

@@ -21,7 +21,6 @@ class PerpetuaMapToolbox(ObjectMapToolbox):
         p_f: float,
         load_week: bool = False,
         seed: int = 42,
-        **kwargs
     ):
         self.object_map: PerpetuaObjectMap = None
         self.key = jax.random.PRNGKey(seed)

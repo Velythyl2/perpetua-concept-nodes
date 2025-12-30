@@ -1,0 +1,5 @@
+defaults:
+  - /server@server: AgentServer
+
+_target_: concept_graphs.inference.agent.PerpetuaAgent.PerpetuaAgent
+sim: null  # to be filled in at runtime
