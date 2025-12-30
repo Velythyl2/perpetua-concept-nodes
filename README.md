@@ -13,22 +13,6 @@ git clone --recurse-submodules git@github.com:kumaradityag/perpetua-concept-node
 
 That's it. **If you do this, ignore the following install section.**
 
-# Install
-Clone repository and submodules
-```bash
-git clone --recurse-submodules git@github.com:kumaradityag/perpetua-concept-nodes
-```
-
-Install dependencies. Preferably in a virtual environment.
-```bash
-pip install --upgrade pip
-```
-```bash
-pip install -e perpetua-concept-nodes
-```
-```bash
-pip install -e perpetua-concept-nodes/rgbd_dataset
-```
 
 ## Install SAM3
 If SAM3 was not part of the package when you first installed it - you can get it by running the following commands
@@ -72,8 +56,6 @@ We define specific experiments with the `algo` and `dataset` keys. To run the de
 version of the Replica dataset, try
 
 ```bash
-python3 main.py algo=CGDetector dataset=Replica_low sim_thresh=0.89
-# Or with uv
 uv run python main.py algo=CGDetector dataset=Replica_low sim_thresh=0.89
 ```
 The map and other assets will be saved to `output_dir`. `main.py` will also create
@@ -102,25 +84,45 @@ Additionally, you can also use all the dataset arguments detailed in the [rgbd_d
 
 The above list only includes the most common arguments. If you understand [Hydra](https://hydra.cc/docs/intro/), there are a lot more options that you can configure from the CLI. Add `--cfg job` to the main command to visualize the full config.
 
+## Map Query
+This is the main script used to: (1) associate pickupables and receptacles to objects in the Concept-Graphs' map, and (2) produce a PerpetuaMap that is ready for user using the Map server API.
 
-## Visualizer
-To visualize the latest map with Open3D (`output_dir/latest_map`), use
+To create a PerpetuaMap, run the following command:
+
 ```bash
-python3 visualizer.py
-# Or with uv
-uv run python visualizer.py
+uv run python map_query.py dataset.scene=run_0 debug=true
+```
+
+where the `dataset.scene` determines the major tick (hour) used to create the map and `debug` is an optional flag that allows the user to assess the quality of the associations in a Viser GUI.
+
+There are other available verifiers for the data association process:
+
+```bash
+uv run python map_query.py dataset.scene=run_0 algo=[VerifyObjectsGT | VerifyObjects]
+```
+
+`VerifyObjectsGT` uses priviliged information to compute the data association while `VerifyObjects` relies on CLIP similarities + an LLM verifier to determine the associations.
+
+## Map server
+To visualize and interact with the latest map with Viser (`output_dir/latest_map`), use
+```bash
+uv run python map_server.py server=[ObjectMapServer | PerpetuaMapServer]
 ```
 or provide your own `$MAP_PATH`
 ```bash
-python3 visualizer.py map_path=$MAP_PATH
-# Or with uv
-uv run python visualizer.py map_path=$MAP_PATH
+uv run python map_server.py server=[ObjectMapServer | PerpetuaMapServer] map_path=$MAP_PATH
 ```
 
-Various options and colorings are available in the panel
-at the bottom right of the window. Some options such as CLIP
-queries require to interact with the terminal used to 
-launch the visualizer.
+The Map server allows the user to interact with either the standard Concept-Graphs map or the PerpetuaMap. The main difference between the two is that the PerpetuaMap allows for _temporal map queries_, whereas the standard Concept-Graphs one include CLIP similarities, segmentation, among other features.
+
+## Agentic Reasoning
+To interact with an LLM agent that uses the PerpetuaMap, use
+
+```bash
+uv run python agent.py
+```
+
+This will launch a Viser server that allows the user to send text queries to the agent. Furthermore, the user can also use the control panel to play with the different tools the agent can use.
 
 ## Output
 The output consists of the following files and directories:

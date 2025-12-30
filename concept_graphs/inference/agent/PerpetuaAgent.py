@@ -199,7 +199,7 @@ Do not go to an object unless explicitly necessary to fulfill the query.
         if self.server.open_vocab_query is not None:
                 response = self.query(self.server.open_vocab_query)
                 self.server.open_vocab_query = None
-                self.display_llm_response(response)
+                self.server.display_llm_response(response)
         # Predict
         if (
             self.server.object_query_time is not None
