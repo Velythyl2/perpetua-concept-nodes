@@ -106,10 +106,12 @@ class Agent(ABC):
         """
         while True:
             is_pathing_finished = self.sim.GoToObject(
-                ROBOTS[0], receptacle_id, max_path_length=2
+                ROBOTS[0], receptacle_id, max_path_length=5
             )
             obs = self.sim.render()
             self.sim.privileged_apn = None
+
+            print(obs["agent_pose"])
 
             # TODO: When consuming observations, the target receptacle may have changed
             # We may need to predict every certain # of observations in case the receptacle_id changes

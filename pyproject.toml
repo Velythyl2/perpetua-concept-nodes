@@ -24,7 +24,7 @@ dependencies = [
     "langchain",
     "langchain-openai",
     "viser",
-    "semistaticsim==0.4.8" #@git+https://github.com/Velythyl/SemiStaticSim.git@package"
+    "semistaticsim" #==0.4.8" #@git+https://github.com/Velythyl/SemiStaticSim.git@package"
 ]
 requires-python = ">=3.10"
 
