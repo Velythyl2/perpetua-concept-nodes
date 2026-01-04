@@ -119,7 +119,7 @@ The Map server allows the user to interact with either the standard Concept-Grap
 To interact with an LLM agent that uses the PerpetuaMap, use
 
 ```bash
-
+ 
 ```
 
 This will launch a Viser server that allows the user to send text queries to the agent. Furthermore, the user can also use the control panel to play with the different tools the agent can use.
